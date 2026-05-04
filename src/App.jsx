@@ -3,7 +3,18 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://bnipigbonmxqqdofeopx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuaXBpZ2Jvbm14cXFkb2Zlb3B4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NDk5ODksImV4cCI6MjA5MzQyNTk4OX0.6JWrzavsuIvjUPE460byiV258GZi4QvuXgGZ4utGYZM";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    storage: {
+      getItem: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
+      setItem: (key, value) => { try { localStorage.setItem(key, value); } catch {} },
+      removeItem: (key) => { try { localStorage.removeItem(key); } catch {} },
+    },
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  }
+});
 
 const CLIENTES   = ["OPET","MLETRAS","GOV SP","POLIEDRO","Outro"];
 const STATUSES   = ["Em processo","Validação","Ajustes","Finalizado","Atrasado"];
