@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ── SUPABASE ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://bnipigbonmxqqdofeopx.supabase.co";
 const SUPABASE_KEY = "sb_publishable_4oKGWnINPQz4doCuKMu3iQ_ajlUYaUp";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const CLIENTES   = ["OPET","MLETRAS","GOV SP","POLIEDRO","Outro"];
 const STATUSES   = ["Em processo","Validação","Ajustes","Finalizado","Atrasado"];
 const NF_OPTS    = ["A emitir","Emitida","Não aplicável"];
@@ -20,11 +18,7 @@ const C = {
   amber:"#E8A44A", teal:"#4AADA8", red:"#D95F5F", green:"#5FA86D",
   purple:"#8B6FBE", yellow:"#D4A843", text:"#F0EDE6", sub:"#6B6560", sub2:"#9A9390",
 };
-
-const CLIENT_COLOR = {
-  "OPET":C.amber,"MLETRAS":C.purple,"GOV SP":C.teal,"POLIEDRO":C.yellow,"Outro":C.sub2,
-};
-
+const CLIENT_COLOR = { "OPET":C.amber,"MLETRAS":C.purple,"GOV SP":C.teal,"POLIEDRO":C.yellow,"Outro":C.sub2 };
 const STATUS_CFG = {
   "Em processo":{ color:C.amber,  bg:"#E8A44A18", border:"#E8A44A30" },
   "Validação":  { color:C.purple, bg:"#8B6FBE18", border:"#8B6FBE30" },
@@ -33,62 +27,47 @@ const STATUS_CFG = {
   "Atrasado":   { color:C.red,    bg:"#D95F5F18", border:"#D95F5F30" },
 };
 
-// ── UTILS ─────────────────────────────────────────────────────────────────────
 const brl = v => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const fmtDate = iso => { if(!iso) return "—"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; };
 const mesKey  = iso => iso ? iso.slice(0,7) : "";
 const nomeMes = ym => { if(!ym) return ""; const [y,m]=ym.split("-"); return new Date(y,m-1,1).toLocaleString("pt-BR",{month:"long",year:"numeric"}); };
+const primeiroNome = nome => nome ? nome.trim().split(" ")[0] : "";
 
-function prazoEfetivo(f) {
-  return (f.status==="Ajustes" && f.prazo_ajuste) ? f.prazo_ajuste : f.prazo;
-}
+function prazoEfetivo(f) { return (f.status==="Ajustes"&&f.prazo_ajuste)?f.prazo_ajuste:f.prazo; }
 function diasRestantes(f) {
-  const prazo = prazoEfetivo(f);
-  if (!prazo) return null;
-  if (STATUS_SUSPENDE_PRAZO.includes(f.status) && f.status!=="Ajustes") return null;
+  const prazo=prazoEfetivo(f); if(!prazo) return null;
+  if(STATUS_SUSPENDE_PRAZO.includes(f.status)&&f.status!=="Ajustes") return null;
   const hoje=new Date(); hoje.setHours(0,0,0,0);
   const p=new Date(prazo); p.setHours(0,0,0,0);
   return Math.round((p-hoje)/86400000);
 }
-function isRealmenteAtrasado(f) {
-  if (STATUS_SUSPENDE_PRAZO.includes(f.status)) return false;
-  const d=diasRestantes(f); return d!==null && d<0;
-}
+function isRealmenteAtrasado(f) { if(STATUS_SUSPENDE_PRAZO.includes(f.status)) return false; const d=diasRestantes(f); return d!==null&&d<0; }
 function urgencia(f) {
-  if (f.status==="Finalizado") return "done";
-  if (isRealmenteAtrasado(f)) return "atrasado";
-  if (f.status==="Validação") return "suspenso";
-  const d=diasRestantes(f);
-  if (d===null) return "ok";
-  if (d<=2) return "critico";
-  if (d<=5) return "urgente";
-  return "ok";
+  if(f.status==="Finalizado") return "done";
+  if(isRealmenteAtrasado(f)) return "atrasado";
+  if(f.status==="Validação") return "suspenso";
+  const d=diasRestantes(f); if(d===null) return "ok";
+  if(d<=2) return "critico"; if(d<=5) return "urgente"; return "ok";
 }
-function isConcluido(f) { return f.status==="Finalizado" && f.pago; }
+function isConcluido(f) { return f.status==="Finalizado"&&f.pago; }
 function saudacao() {
   const h=new Date().getHours();
-  if (h>=5&&h<12) return {texto:"Bom dia",emoji:"☀️"};
-  if (h>=12&&h<18) return {texto:"Boa tarde",emoji:"🌤️"};
+  if(h>=5&&h<12) return {texto:"Bom dia",emoji:"☀️"};
+  if(h>=12&&h<18) return {texto:"Boa tarde",emoji:"🌤️"};
   return {texto:"Boa noite",emoji:"🌙"};
 }
+function fmtWpp(v) {
+  const n=v.replace(/\D/g,"");
+  if(n.length<=2) return n;
+  if(n.length<=7) return `(${n.slice(0,2)}) ${n.slice(2)}`;
+  return `(${n.slice(0,2)}) ${n.slice(2,7)}-${n.slice(7,11)}`;
+}
 
-// ── DB HELPERS ────────────────────────────────────────────────────────────────
-// Mapeia snake_case do banco para camelCase do app
 function fromDB(f) {
-  return {
-    id: f.id, cliente: f.cliente, projeto: f.projeto,
-    inicio: f.inicio||"", prazo: f.prazo||"",
-    prazoAjuste: f.prazo_ajuste||"", valor: parseFloat(f.valor)||0,
-    status: f.status, pago: f.pago, nf: f.nf||"", obs: f.obs||"",
-  };
+  return { id:f.id, cliente:f.cliente, projeto:f.projeto, inicio:f.inicio||"", prazo:f.prazo||"", prazo_ajuste:f.prazo_ajuste||"", valor:parseFloat(f.valor)||0, status:f.status, pago:f.pago, nf:f.nf||"", obs:f.obs||"" };
 }
 function toDB(f, userId) {
-  return {
-    user_id: userId, cliente: f.cliente, projeto: f.projeto,
-    inicio: f.inicio||null, prazo: f.prazo||null,
-    prazo_ajuste: f.prazoAjuste||null, valor: parseFloat(f.valor)||0,
-    status: f.status, pago: f.pago, nf: f.nf||"", obs: f.obs||"",
-  };
+  return { user_id:userId, cliente:f.cliente, projeto:f.projeto, inicio:f.inicio||null, prazo:f.prazo||null, prazo_ajuste:f.prazo_ajuste||null, valor:parseFloat(f.valor)||0, status:f.status, pago:f.pago, nf:f.nf||"", obs:f.obs||"" };
 }
 
 // ── ROOT ──────────────────────────────────────────────────────────────────────
@@ -97,11 +76,8 @@ export default function App() {
   const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_,s) => setSession(s));
+    supabase.auth.getSession().then(({data}) => { setSession(data.session); setLoading(false); });
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
 
@@ -110,10 +86,10 @@ export default function App() {
   return <MainApp session={session}/>;
 }
 
-// ── SPLASH ────────────────────────────────────────────────────────────────────
 function Splash() {
   return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:C.bg,gap:16}}>
+      <style>{CSS}</style>
       <div style={{fontSize:32}}>💼</div>
       <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.text}}>AmigoFreela</div>
       <div style={{width:24,height:24,border:`2px solid ${C.border}`,borderTop:`2px solid ${C.amber}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
@@ -123,28 +99,24 @@ function Splash() {
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function LoginScreen() {
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
-  const [msg,      setMsg]      = useState("");
+  const [email,setPwd0]   = useState("");
+  const [password,setPwd] = useState("");
+  const [isSignUp,setSU]  = useState(false);
+  const [loading,setL]    = useState(false);
+  const [error,setE]      = useState("");
+  const [msg,setM]        = useState("");
 
   async function handleEmail() {
-    setLoading(true); setError(""); setMsg("");
+    setL(true); setE(""); setM("");
     const fn = isSignUp ? supabase.auth.signUp : supabase.auth.signInWithPassword;
-    const { error } = await fn({ email, password });
-    if (error) setError(error.message);
-    else if (isSignUp) setMsg("Verifique seu email para confirmar o cadastro.");
-    setLoading(false);
+    const {error} = await fn({email,password});
+    if(error) setE(error.message);
+    else if(isSignUp) setM("Verifique seu email para confirmar o cadastro.");
+    setL(false);
   }
-
   async function handleGoogle() {
-    setLoading(true);
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
+    setL(true);
+    await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.origin}});
   }
 
   return (
@@ -156,33 +128,19 @@ function LoginScreen() {
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:800,color:C.text}}>AmigoFreela</div>
           <div style={{fontSize:13,color:C.sub,marginTop:4}}>Gestão de freelances, simples assim.</div>
         </div>
-
-        {/* Google */}
         <button style={S.googleBtn} onClick={handleGoogle} disabled={loading}>
-          <span style={{fontSize:16}}>G</span>
-          Entrar com Google
+          <span style={{fontWeight:800,fontSize:15}}>G</span> Entrar com Google
         </button>
-
-        <div style={S.divider}><span style={S.dividerText}>ou</span></div>
-
-        {/* Email */}
-        <div style={{marginBottom:12}}>
-          <input style={S.inp} type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}/>
-        </div>
-        <div style={{marginBottom:16}}>
-          <input style={S.inp} type="password" placeholder="Senha" value={password} onChange={e=>setPassword(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&handleEmail()}/>
-        </div>
-
+        <div style={S.divider}><span style={S.dividerText}>ou com email</span></div>
+        <input style={{...S.inp,marginBottom:10}} type="email" placeholder="Email" value={email} onChange={e=>setPwd0(e.target.value)}/>
+        <input style={{...S.inp,marginBottom:14}} type="password" placeholder="Senha (mín. 6 caracteres)" value={password} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleEmail()}/>
         {error && <div style={S.errorBox}>{error}</div>}
         {msg   && <div style={S.msgBox}>{msg}</div>}
-
-        <button style={S.saveBtn} onClick={handleEmail} disabled={loading||!email||!password}>
-          {loading ? "Aguarde…" : isSignUp ? "Criar conta" : "Entrar"}
+        <button style={{...S.saveBtn,opacity:loading||!email||!password?0.4:1}} disabled={loading||!email||!password} onClick={handleEmail}>
+          {loading?"Aguarde…":isSignUp?"Criar conta":"Entrar"}
         </button>
-
-        <button style={S.linkBtn} onClick={()=>{setIsSignUp(!isSignUp);setError("");setMsg("");}}>
-          {isSignUp ? "Já tenho conta — Entrar" : "Não tenho conta — Criar"}
+        <button style={S.linkBtn} onClick={()=>{setSU(!isSignUp);setE("");setM("");}}>
+          {isSignUp?"Já tenho conta — Entrar":"Não tenho conta — Criar grátis"}
         </button>
       </div>
     </div>
@@ -190,142 +148,136 @@ function LoginScreen() {
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
-function MainApp({ session }) {
-  const [data,       setData]       = useState([]);
-  const [loadingDB,  setLoadingDB]  = useState(true);
-  const [tab,        setTab]        = useState("inicio");
-  const [view,       setView]       = useState(null);
-  const [toast,      setToast]      = useState("");
-  const [ajusteModal,setAjusteModal]= useState(null);
-  const [avatar,     setAvatar]     = useState(() => localStorage.getItem("fl_avatar")||"");
+function MainApp({session}) {
+  const [data,      setData]      = useState([]);
+  const [profile,   setProfile]   = useState(null);
+  const [loadingDB, setLoadingDB] = useState(true);
+  const [tab,       setTab]       = useState("inicio");
+  const [view,      setView]      = useState(null);
+  const [toast,     setToast]     = useState("");
+  const [ajusteModal, setAM]      = useState(null);
+  const [showPerfil,  setSP]      = useState(false);
 
   const userId = session.user.id;
-  const userEmail = session.user.email;
-  const userName = userEmail?.split("@")[0] || "você";
 
-  // Carrega dados do Supabase
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  async function loadData() {
+  async function loadAll() {
     setLoadingDB(true);
-    const { data: rows, error } = await supabase
-      .from("freelances")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (!error) setData(rows.map(fromDB));
+    const [{data:rows},{data:prof}] = await Promise.all([
+      supabase.from("freelances").select("*").order("created_at",{ascending:false}),
+      supabase.from("profiles").select("*").eq("id",userId).single(),
+    ]);
+    if(rows) setData(rows.map(fromDB));
+    if(prof) setProfile(prof);
+    else setProfile({id:userId,nome:"",whatsapp:"",avatar_url:""});
     setLoadingDB(false);
   }
 
+  // Se perfil sem nome → mostra onboarding
+  const needsOnboarding = profile && !profile.nome;
+
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(""),2200); }
 
+  async function saveProfile(p) {
+    const {error} = await supabase.from("profiles").upsert({id:userId,...p,updated_at:new Date().toISOString()});
+    if(!error) { setProfile({...profile,...p}); showToast("Perfil salvo ✓"); setSP(false); }
+  }
+
   async function save(f) {
-    if (f.status==="Ajustes" && !f.prazoAjuste) {
-      setAjusteModal(f); return;
-    }
-    if (f.id && f.id.length < 20) {
-      // ID numérico = dado local antigo, criar novo
-      f = { ...f, id: undefined };
-    }
-    if (f.id) {
-      const { error } = await supabase
-        .from("freelances")
-        .update(toDB(f, userId))
-        .eq("id", f.id);
-      if (!error) { await loadData(); showToast("Atualizado ✓"); }
-      else showToast("Erro ao salvar");
+    if(f.status==="Ajustes"&&!f.prazo_ajuste) { setAM(f); return; }
+    if(f.id) {
+      const {error} = await supabase.from("freelances").update(toDB(f,userId)).eq("id",f.id);
+      if(!error) { await loadAll(); showToast("Atualizado ✓"); }
     } else {
-      const { error } = await supabase
-        .from("freelances")
-        .insert(toDB(f, userId));
-      if (!error) { await loadData(); showToast("Adicionado ✓"); }
-      else showToast("Erro ao salvar");
+      const {error} = await supabase.from("freelances").insert(toDB(f,userId));
+      if(!error) { await loadAll(); showToast("Adicionado ✓"); }
     }
     setView(null);
   }
 
-  async function confirmAjuste(f, novoPrazo) {
-    const fFinal = { ...f, prazoAjuste: novoPrazo };
-    await save(fFinal);
-    setAjusteModal(null);
-  }
+  async function confirmAjuste(f,prazo) { await save({...f,prazo_ajuste:prazo}); setAM(null); }
 
   async function del(id) {
-    const { error } = await supabase.from("freelances").delete().eq("id", id);
-    if (!error) { await loadData(); showToast("Removido"); }
-    setView(null);
+    await supabase.from("freelances").delete().eq("id",id);
+    await loadAll(); showToast("Removido"); setView(null);
   }
 
   async function togglePago(id) {
-    const f = data.find(x=>x.id===id);
-    if (!f) return;
-    await supabase.from("freelances").update({ pago: !f.pago }).eq("id", id);
-    await loadData();
+    const f=data.find(x=>x.id===id); if(!f) return;
+    await supabase.from("freelances").update({pago:!f.pago}).eq("id",id);
+    await loadAll();
   }
 
   function exportCSV() {
-    const header = "Cliente,Projeto,Início,Prazo,Prazo Ajuste,Valor,Status,Pago,NF,Obs\n";
-    const rows = data.map(f =>
-      [f.cliente,`"${f.projeto}"`,f.inicio,f.prazo,f.prazoAjuste||"",f.valor,f.status,f.pago?"Sim":"Não",f.nf,`"${f.obs||""}"`].join(",")
-    ).join("\n");
-    const blob = new Blob([header+rows],{type:"text/csv"});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href=url; a.download=`amigofreela_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-    URL.revokeObjectURL(url);
-    showToast("CSV exportado ✓");
+    const header="Cliente,Projeto,Início,Prazo,Prazo Ajuste,Valor,Status,Pago,NF,Obs\n";
+    const rows=data.map(f=>[f.cliente,`"${f.projeto}"`,f.inicio,f.prazo,f.prazo_ajuste||"",f.valor,f.status,f.pago?"Sim":"Não",f.nf,`"${f.obs||""}"`].join(",")).join("\n");
+    const blob=new Blob([header+rows],{type:"text/csv"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=`amigofreela_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    URL.revokeObjectURL(url); showToast("CSV exportado ✓");
   }
 
-  async function logout() {
-    await supabase.auth.signOut();
+  async function logout() { await supabase.auth.signOut(); }
+
+  const nome = primeiroNome(profile?.nome) || primeiroNome(session.user.user_metadata?.full_name) || "freela";
+  const initials = (profile?.nome||nome).slice(0,2).toUpperCase();
+
+  const titleMap={inicio:"Início",prazos:"Prazos",financeiro:"Financeiro",clientes:"Clientes",lista:"Lista"};
+
+  if(loadingDB) return <Splash/>;
+
+  // Onboarding — primeira vez
+  if(needsOnboarding && !showPerfil) {
+    return (
+      <div style={{...S.root,justifyContent:"center",padding:24,minHeight:"100vh"}}>
+        <style>{CSS}</style>
+        <div style={{maxWidth:380,width:"100%",margin:"auto"}}>
+          <div style={{textAlign:"center",marginBottom:28}}>
+            <div style={{fontSize:36,marginBottom:8}}>👋</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:800,color:C.text}}>Bem-vindo!</div>
+            <div style={{fontSize:13,color:C.sub,marginTop:6}}>Antes de começar, conta um pouco sobre você.</div>
+          </div>
+          <OnboardingForm onSave={saveProfile}/>
+        </div>
+      </div>
+    );
   }
-
-  const titleMap = { inicio:"Início",prazos:"Prazos",financeiro:"Financeiro",clientes:"Clientes",lista:"Lista" };
-
-  if (loadingDB) return <Splash/>;
 
   return (
     <div style={S.root}>
       <style>{CSS}</style>
 
       <header style={S.header}>
-        {view
-          ? <button style={S.iconBtn} onClick={()=>setView(null)}>←</button>
+        {view || showPerfil
+          ? <button style={S.iconBtn} onClick={()=>{setView(null);setSP(false);}}>←</button>
           : <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <div style={S.avatarWrap} onClick={()=>document.getElementById("avatarInput").click()}>
-                {avatar
-                  ? <img src={avatar} style={S.avatarImg} alt="avatar"/>
-                  : <div style={S.avatarPlaceholder}>{userName.slice(0,2).toUpperCase()}</div>}
-                <input id="avatarInput" type="file" accept="image/*" style={{display:"none"}}
-                  onChange={e=>{
-                    const f=e.target.files[0]; if(!f) return;
-                    const r=new FileReader(); r.onload=ev=>{
-                      setAvatar(ev.target.result);
-                      localStorage.setItem("fl_avatar",ev.target.result);
-                    }; r.readAsDataURL(f);
-                  }}/>
+              <div style={S.avatarWrap} onClick={()=>setSP(true)}>
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} style={S.avatarImg} alt="avatar"/>
+                  : <div style={S.avatarPlaceholder}>{initials}</div>}
               </div>
               <button style={S.logoutBtn} onClick={logout} title="Sair">⏻</button>
             </div>}
         <span style={S.headerTitle}>
-          {view ? (view.payload?.id?"Editar":"Novo Freelance") : titleMap[tab]}
+          {showPerfil?"Meu Perfil":view?(view.payload?.id?"Editar":"Novo Freelance"):titleMap[tab]}
         </span>
-        {!view
+        {!view && !showPerfil
           ? <button style={S.iconBtnAmber} onClick={()=>setView({type:"form",payload:{}})}>＋</button>
           : <span style={{width:36}}/>}
       </header>
 
       <main style={S.main}>
-        {!view && tab==="inicio"     && <Inicio data={data} userName={userName} onOpen={f=>setView({type:"form",payload:f})} onTogglePago={togglePago} onExport={exportCSV}/>}
-        {!view && tab==="prazos"     && <Prazos data={data} onOpen={f=>setView({type:"form",payload:f})}/>}
-        {!view && tab==="financeiro" && <Financeiro data={data}/>}
-        {!view && tab==="clientes"   && <Clientes data={data} onOpen={f=>setView({type:"form",payload:f})}/>}
-        {!view && tab==="lista"      && <Lista data={data} onOpen={f=>setView({type:"form",payload:f})} onTogglePago={togglePago}/>}
-        {view?.type==="form"         && <Form initial={view.payload} onSave={save} onDelete={del}/>}
+        {showPerfil && <PerfilScreen profile={profile} onSave={saveProfile} onLogout={logout}/>}
+        {!showPerfil && !view && tab==="inicio"     && <Inicio data={data} nome={nome} onOpen={f=>setView({type:"form",payload:f})} onTogglePago={togglePago} onExport={exportCSV}/>}
+        {!showPerfil && !view && tab==="prazos"     && <Prazos data={data} onOpen={f=>setView({type:"form",payload:f})}/>}
+        {!showPerfil && !view && tab==="financeiro" && <Financeiro data={data}/>}
+        {!showPerfil && !view && tab==="clientes"   && <Clientes data={data} onOpen={f=>setView({type:"form",payload:f})}/>}
+        {!showPerfil && !view && tab==="lista"      && <Lista data={data} onOpen={f=>setView({type:"form",payload:f})} onTogglePago={togglePago}/>}
+        {!showPerfil && view?.type==="form"         && <Form initial={view.payload} onSave={save} onDelete={del}/>}
       </main>
 
-      {!view && (
+      {!view && !showPerfil && (
         <nav style={S.nav}>
           {TABS.map(k=>(
             <button key={k} style={{...S.navBtn,...(tab===k?S.navActive:{})}} onClick={()=>setTab(k)}>
@@ -336,42 +288,122 @@ function MainApp({ session }) {
         </nav>
       )}
 
-      {ajusteModal && <AjusteModal freelance={ajusteModal} onConfirm={confirmAjuste} onCancel={()=>setAjusteModal(null)}/>}
+      {ajusteModal && <AjusteModal freelance={ajusteModal} onConfirm={confirmAjuste} onCancel={()=>setAM(null)}/>}
       {toast && <div style={S.toast}>{toast}</div>}
     </div>
   );
 }
 
+// ── ONBOARDING ────────────────────────────────────────────────────────────────
+function OnboardingForm({onSave}) {
+  const [nome,setNome]   = useState("");
+  const [wpp,setWpp]     = useState("");
+  const [saving,setSav]  = useState(false);
+
+  async function handle() {
+    setSav(true);
+    await onSave({nome,whatsapp:wpp});
+    setSav(false);
+  }
+
+  return (
+    <div>
+      <FRow label="Seu nome *">
+        <input style={S.inp} placeholder="Ex: Lucas Cajoao" value={nome} onChange={e=>setNome(e.target.value)}/>
+      </FRow>
+      <FRow label="WhatsApp">
+        <input style={S.inp} placeholder="(13) 98172-8086" value={wpp}
+          onChange={e=>setWpp(fmtWpp(e.target.value))} maxLength={15}/>
+        <div style={{fontSize:11,color:C.sub,marginTop:4}}>Usado para notificações de prazo (em breve)</div>
+      </FRow>
+      <button style={{...S.saveBtn,opacity:nome?1:0.4}} disabled={!nome||saving} onClick={handle}>
+        {saving?"Salvando…":"Começar →"}
+      </button>
+    </div>
+  );
+}
+
+// ── PERFIL ────────────────────────────────────────────────────────────────────
+function PerfilScreen({profile, onSave, onLogout}) {
+  const [nome,setNome]   = useState(profile?.nome||"");
+  const [wpp,setWpp]     = useState(profile?.whatsapp||"");
+  const [saving,setSav]  = useState(false);
+  const [avatar,setAv]   = useState(profile?.avatar_url||"");
+
+  async function handle() {
+    setSav(true);
+    await onSave({nome,whatsapp:wpp,avatar_url:avatar});
+    setSav(false);
+  }
+
+  function handleAvatar(e) {
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader(); r.onload=ev=>setAv(ev.target.result); r.readAsDataURL(f);
+  }
+
+  return (
+    <div style={{padding:"20px 16px 80px"}}>
+      {/* Avatar */}
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:24}}>
+        <div style={{position:"relative",cursor:"pointer"}} onClick={()=>document.getElementById("perfilAvatarInput").click()}>
+          {avatar
+            ? <img src={avatar} style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:`3px solid ${C.amber}`}} alt="avatar"/>
+            : <div style={{width:80,height:80,borderRadius:"50%",background:C.amber+"30",border:`3px solid ${C.amber}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:700,color:C.amber}}>{nome.slice(0,2).toUpperCase()||"?"}</div>}
+          <div style={{position:"absolute",bottom:0,right:0,background:C.amber,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>📷</div>
+        </div>
+        <input id="perfilAvatarInput" type="file" accept="image/*" style={{display:"none"}} onChange={handleAvatar}/>
+        <div style={{fontSize:11,color:C.sub,marginTop:8}}>Toque para trocar a foto</div>
+      </div>
+
+      <FRow label="Nome completo *">
+        <input style={S.inp} placeholder="Seu nome" value={nome} onChange={e=>setNome(e.target.value)}/>
+      </FRow>
+      <FRow label="WhatsApp">
+        <input style={S.inp} placeholder="(11) 99999-9999" value={wpp}
+          onChange={e=>setWpp(fmtWpp(e.target.value))} maxLength={15}/>
+        <div style={{fontSize:11,color:C.sub,marginTop:4}}>Notificações de prazo (em breve)</div>
+      </FRow>
+
+      <button style={{...S.saveBtn,opacity:nome?1:0.4}} disabled={!nome||saving} onClick={handle}>
+        {saving?"Salvando…":"Salvar perfil"}
+      </button>
+
+      <div style={{marginTop:24,padding:"14px 16px",background:C.card2,borderRadius:12,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:12,color:C.sub,marginBottom:4}}>Plano</div>
+        <div style={{fontSize:15,fontWeight:700,color:C.amber}}>Grátis — 15 dias de teste</div>
+        <div style={{fontSize:12,color:C.sub,marginTop:2}}>Após o período: R$16,90/mês</div>
+      </div>
+
+      <button style={{...S.delBtn,marginTop:16}} onClick={onLogout}>Sair da conta</button>
+    </div>
+  );
+}
+
 // ── INICIO ────────────────────────────────────────────────────────────────────
-function Inicio({ data, userName, onOpen, onTogglePago, onExport }) {
-  const s = saudacao();
-  const total     = data.reduce((s,f)=>s+f.valor,0);
-  const recebido  = data.filter(f=>f.pago).reduce((s,f)=>s+f.valor,0);
-  const aReceber  = data.filter(f=>!f.pago&&f.status!=="Finalizado").reduce((s,f)=>s+f.valor,0);
-  const nfPend    = data.filter(f=>f.nf==="A emitir").length;
-  const atrasados = data.filter(f=>isRealmenteAtrasado(f));
-  const proximos  = data
-    .filter(f=>!isConcluido(f)&&urgencia(f)!=="done"&&urgencia(f)!=="suspenso")
-    .sort((a,b)=>(diasRestantes(a)??999)-(diasRestantes(b)??999))
-    .slice(0,5);
+function Inicio({data,nome,onOpen,onTogglePago,onExport}) {
+  const s=saudacao();
+  const total    =data.reduce((s,f)=>s+f.valor,0);
+  const recebido =data.filter(f=>f.pago).reduce((s,f)=>s+f.valor,0);
+  const aReceber =data.filter(f=>!f.pago&&f.status!=="Finalizado").reduce((s,f)=>s+f.valor,0);
+  const nfPend   =data.filter(f=>f.nf==="A emitir").length;
+  const atrasados=data.filter(f=>isRealmenteAtrasado(f));
+  const proximos =data.filter(f=>!isConcluido(f)&&urgencia(f)!=="done"&&urgencia(f)!=="suspenso").sort((a,b)=>(diasRestantes(a)??999)-(diasRestantes(b)??999)).slice(0,5);
 
   return (
     <div style={S.section}>
       <div style={S.saudacao}>
         <span style={{fontSize:26}}>{s.emoji}</span>
         <div>
-          <div style={S.saudacaoTexto}>{s.texto}, {userName}!</div>
+          <div style={S.saudacaoTexto}>{s.texto}, {nome}!</div>
           <div style={S.saudacaoSub}>{data.length} projetos · {data.filter(f=>!isConcluido(f)).length} em andamento</div>
         </div>
       </div>
-
       <div style={S.kpiGrid}>
         <KPI label="Total geral" value={brl(total)}    accent={C.amber}/>
         <KPI label="Recebido"    value={brl(recebido)} accent={C.green}/>
         <KPI label="A receber"   value={brl(aReceber)} accent={C.yellow}/>
         <KPI label="NF pendente" value={String(nfPend)} accent={C.purple} small/>
       </div>
-
       {atrasados.length>0 && (
         <div style={S.alertBox}>
           <div style={S.alertTitle}>🚨 Realmente atrasados</div>
@@ -383,53 +415,46 @@ function Inicio({ data, userName, onOpen, onTogglePago, onExport }) {
           ))}
         </div>
       )}
-
       <div style={S.blockTitle}>Próximos prazos</div>
-      {proximos.length===0 && <div style={S.empty}>Nenhum prazo próximo.</div>}
+      {proximos.length===0&&<div style={S.empty}>Nenhum prazo próximo.</div>}
       {proximos.map(f=><CardCompact key={f.id} f={f} onOpen={onOpen} onTogglePago={onTogglePago}/>)}
-
       <button style={S.exportBtn} onClick={onExport}>⬇ Exportar dados (CSV)</button>
     </div>
   );
 }
 
 // ── PRAZOS ────────────────────────────────────────────────────────────────────
-function Prazos({ data, onOpen }) {
-  const ativos = data.filter(f=>f.status!=="Finalizado");
-  const grupos = {
-    "🚨 Atrasados":     ativos.filter(f=>isRealmenteAtrasado(f)),
-    "🔴 Hoje / amanhã": ativos.filter(f=>{ const d=diasRestantes(f); return d!==null&&d>=0&&d<=1; }),
-    "🟡 Esta semana":   ativos.filter(f=>{ const d=diasRestantes(f); return d!==null&&d>=2&&d<=7; }),
-    "⏸ Suspensos":      ativos.filter(f=>f.status==="Validação"),
-    "📋 Ajustes":       ativos.filter(f=>f.status==="Ajustes"),
-    "🟢 No prazo":      ativos.filter(f=>{ const d=diasRestantes(f); return d!==null&&d>7; }),
+function Prazos({data,onOpen}) {
+  const ativos=data.filter(f=>f.status!=="Finalizado");
+  const grupos={
+    "🚨 Atrasados":    ativos.filter(f=>isRealmenteAtrasado(f)),
+    "🔴 Hoje / amanhã":ativos.filter(f=>{const d=diasRestantes(f);return d!==null&&d>=0&&d<=1;}),
+    "🟡 Esta semana":  ativos.filter(f=>{const d=diasRestantes(f);return d!==null&&d>=2&&d<=7;}),
+    "⏸ Suspensos":     ativos.filter(f=>f.status==="Validação"),
+    "📋 Ajustes":      ativos.filter(f=>f.status==="Ajustes"),
+    "🟢 No prazo":     ativos.filter(f=>{const d=diasRestantes(f);return d!==null&&d>7;}),
   };
   return (
     <div style={{padding:"12px 16px 80px"}}>
       {Object.entries(grupos).map(([label,items])=>{
         if(!items.length) return null;
-        return (
-          <div key={label}>
-            <div style={S.blockTitle}>{label}</div>
-            {items.map(f=><CardPrazo key={f.id} f={f} onOpen={onOpen}/>)}
-          </div>
-        );
+        return <div key={label}><div style={S.blockTitle}>{label}</div>{items.map(f=><CardPrazo key={f.id} f={f} onOpen={onOpen}/>)}</div>;
       })}
     </div>
   );
 }
 
 // ── FINANCEIRO ────────────────────────────────────────────────────────────────
-function Financeiro({ data }) {
-  const meses = [...new Set(data.map(f=>mesKey(f.prazo)).filter(Boolean))].sort().reverse();
+function Financeiro({data}) {
+  const meses=[...new Set(data.map(f=>mesKey(f.prazo)).filter(Boolean))].sort().reverse();
   return (
     <div style={{padding:"12px 16px 80px"}}>
       <div style={S.blockTitle}>Por mês</div>
       {meses.map(mes=>{
-        const items    = data.filter(f=>mesKey(f.prazo)===mes);
-        const total    = items.reduce((s,f)=>s+f.valor,0);
-        const recebido = items.filter(f=>f.pago).reduce((s,f)=>s+f.valor,0);
-        const pend     = items.filter(f=>!f.pago).reduce((s,f)=>s+f.valor,0);
+        const items=data.filter(f=>mesKey(f.prazo)===mes);
+        const total=items.reduce((s,f)=>s+f.valor,0);
+        const recebido=items.filter(f=>f.pago).reduce((s,f)=>s+f.valor,0);
+        const pend=items.filter(f=>!f.pago).reduce((s,f)=>s+f.valor,0);
         return (
           <div key={mes} style={S.mesCard}>
             <div style={S.mesNome}>{nomeMes(mes)}</div>
@@ -455,42 +480,30 @@ function Financeiro({ data }) {
 }
 
 // ── CLIENTES ──────────────────────────────────────────────────────────────────
-function Clientes({ data, onOpen }) {
+function Clientes({data,onOpen}) {
   const [open,setOpen]=useState(null);
   return (
     <div style={{padding:"12px 16px 80px"}}>
       {CLIENTES.filter(c=>data.some(f=>f.cliente===c)).map(c=>{
-        const items    = data.filter(f=>f.cliente===c);
-        const ativos   = items.filter(f=>!isConcluido(f));
-        const total    = items.reduce((s,f)=>s+f.valor,0);
-        const recebido = items.filter(f=>f.pago).reduce((s,f)=>s+f.valor,0);
-        const cor      = CLIENT_COLOR[c]||C.sub2;
-        const isOpen   = open===c;
+        const items=data.filter(f=>f.cliente===c);
+        const ativos=items.filter(f=>!isConcluido(f));
+        const total=items.reduce((s,f)=>s+f.valor,0);
+        const recebido=items.filter(f=>f.pago).reduce((s,f)=>s+f.valor,0);
+        const cor=CLIENT_COLOR[c]||C.sub2;
+        const isOpen=open===c;
         return (
           <div key={c} style={{...S.clienteCard,borderLeft:`3px solid ${cor}`}}>
             <div style={S.clienteHeader} onClick={()=>setOpen(isOpen?null:c)}>
-              <div>
-                <div style={{...S.clienteNome,color:cor}}>{c}</div>
-                <div style={S.clienteSub}>{items.length} projetos · {ativos.length} ativos</div>
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontSize:14,fontWeight:700,color:C.text}}>{brl(total)}</div>
-                <div style={{fontSize:11,color:C.green}}>{brl(recebido)} recebido</div>
-              </div>
+              <div><div style={{...S.clienteNome,color:cor}}>{c}</div><div style={S.clienteSub}>{items.length} projetos · {ativos.length} ativos</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:14,fontWeight:700,color:C.text}}>{brl(total)}</div><div style={{fontSize:11,color:C.green}}>{brl(recebido)} recebido</div></div>
               <span style={{color:C.sub,marginLeft:8,fontSize:16}}>{isOpen?"▲":"▼"}</span>
             </div>
             {isOpen && (
               <div style={S.clienteItens}>
                 {items.sort((a,b)=>(b.prazo||"").localeCompare(a.prazo||"")).map(f=>(
                   <div key={f.id} style={S.clienteItem} onClick={()=>onOpen(f)}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,color:C.text,fontWeight:500}}>{f.projeto}</div>
-                      <div style={{fontSize:11,color:C.sub}}>Prazo: {fmtDate(prazoEfetivo(f))}</div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:13,fontWeight:700,color:C.text}}>{brl(f.valor)}</div>
-                      <div style={{...S.statusPill,...STATUS_CFG[f.status]}}>{f.status}</div>
-                    </div>
+                    <div style={{flex:1}}><div style={{fontSize:13,color:C.text,fontWeight:500}}>{f.projeto}</div><div style={{fontSize:11,color:C.sub}}>Prazo: {fmtDate(prazoEfetivo(f))}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:700,color:C.text}}>{brl(f.valor)}</div><div style={{...S.statusPill,...STATUS_CFG[f.status]}}>{f.status}</div></div>
                   </div>
                 ))}
               </div>
@@ -503,16 +516,16 @@ function Clientes({ data, onOpen }) {
 }
 
 // ── LISTA ─────────────────────────────────────────────────────────────────────
-function Lista({ data, onOpen, onTogglePago }) {
-  const [busca,setBusca]         = useState("");
-  const [filterCliente,setFC]    = useState("todos");
-  const [filterStatus,setFS]     = useState("todos");
-  const [showConcluidos,setSC]   = useState(false);
-  const [sortBy,setSort]         = useState("prazo");
-  const [filterMes,setFM]        = useState("todos");
-  const meses = [...new Set(data.map(f=>mesKey(f.prazo)).filter(Boolean))].sort().reverse();
+function Lista({data,onOpen,onTogglePago}) {
+  const [busca,setBusca]       = useState("");
+  const [filterCliente,setFC]  = useState("todos");
+  const [filterStatus,setFS]   = useState("todos");
+  const [showConcluidos,setSC] = useState(false);
+  const [sortBy,setSort]       = useState("prazo");
+  const [filterMes,setFM]      = useState("todos");
+  const meses=[...new Set(data.map(f=>mesKey(f.prazo)).filter(Boolean))].sort().reverse();
 
-  const filtrar = arr => arr
+  const filtrar=arr=>arr
     .filter(f=>filterCliente==="todos"||f.cliente===filterCliente)
     .filter(f=>filterStatus==="todos"||f.status===filterStatus)
     .filter(f=>filterMes==="todos"||mesKey(f.prazo)===filterMes)
@@ -524,19 +537,15 @@ function Lista({ data, onOpen, onTogglePago }) {
       return 0;
     });
 
-  const ativosF   = filtrar(data.filter(f=>!isConcluido(f)));
-  const cluidosF  = filtrar(data.filter(f=>isConcluido(f)));
+  const ativosF  =filtrar(data.filter(f=>!isConcluido(f)));
+  const cluidosF =filtrar(data.filter(f=>isConcluido(f)));
 
   return (
     <div>
-      <div style={S.searchWrap}>
-        <input style={S.searchInput} placeholder="🔍  Buscar…" value={busca} onChange={e=>setBusca(e.target.value)}/>
-      </div>
+      <div style={S.searchWrap}><input style={S.searchInput} placeholder="🔍  Buscar…" value={busca} onChange={e=>setBusca(e.target.value)}/></div>
       <div style={{overflowX:"auto",display:"flex",gap:8,padding:"8px 16px"}}>
         <Chip active={filterCliente==="todos"} onClick={()=>setFC("todos")}>Todos</Chip>
-        {CLIENTES.filter(c=>data.some(f=>f.cliente===c)).map(c=>(
-          <Chip key={c} active={filterCliente===c} onClick={()=>setFC(c)} color={CLIENT_COLOR[c]}>{c}</Chip>
-        ))}
+        {CLIENTES.filter(c=>data.some(f=>f.cliente===c)).map(c=><Chip key={c} active={filterCliente===c} onClick={()=>setFC(c)} color={CLIENT_COLOR[c]}>{c}</Chip>)}
       </div>
       <div style={{overflowX:"auto",display:"flex",gap:8,padding:"0 16px 6px"}}>
         <Chip active={filterMes==="todos"} onClick={()=>setFM("todos")} small>Todos meses</Chip>
@@ -548,27 +557,21 @@ function Lista({ data, onOpen, onTogglePago }) {
       </div>
       <div style={{display:"flex",gap:6,padding:"0 16px 8px",alignItems:"center"}}>
         <span style={{fontSize:11,color:C.sub}}>Ord:</span>
-        {[["prazo","Prazo"],["valor","Valor"],["cliente","Cliente"]].map(([k,l])=>(
-          <Chip key={k} active={sortBy===k} onClick={()=>setSort(k)} small>{l}</Chip>
-        ))}
+        {[["prazo","Prazo"],["valor","Valor"],["cliente","Cliente"]].map(([k,l])=><Chip key={k} active={sortBy===k} onClick={()=>setSort(k)} small>{l}</Chip>)}
       </div>
       <div style={{padding:"0 16px 80px"}}>
         <div style={S.listCount}>{ativosF.length} projeto{ativosF.length!==1?"s":""} ativos</div>
         {ativosF.map(f=><CardLista key={f.id} f={f} onOpen={onOpen} onTogglePago={onTogglePago}/>)}
-        {cluidosF.length>0 && (
-          <button style={S.concluidosToggle} onClick={()=>setSC(!showConcluidos)}>
-            {showConcluidos?"▲":"▼"} {cluidosF.length} concluído{cluidosF.length!==1?"s":""} e pagos
-          </button>
-        )}
-        {showConcluidos && cluidosF.map(f=><CardLista key={f.id} f={f} onOpen={onOpen} onTogglePago={onTogglePago} dim/>)}
+        {cluidosF.length>0&&<button style={S.concluidosToggle} onClick={()=>setSC(!showConcluidos)}>{showConcluidos?"▲":"▼"} {cluidosF.length} concluído{cluidosF.length!==1?"s":""} e pagos</button>}
+        {showConcluidos&&cluidosF.map(f=><CardLista key={f.id} f={f} onOpen={onOpen} onTogglePago={onTogglePago} dim/>)}
       </div>
     </div>
   );
 }
 
 // ── CARDS ─────────────────────────────────────────────────────────────────────
-function CardCompact({ f, onOpen, onTogglePago }) {
-  const urg=urgencia(f), d=diasRestantes(f), sc=STATUS_CFG[f.status]||STATUS_CFG["Em processo"];
+function CardCompact({f,onOpen,onTogglePago}) {
+  const urg=urgencia(f),d=diasRestantes(f),sc=STATUS_CFG[f.status]||STATUS_CFG["Em processo"];
   const urgColor=urg==="atrasado"||urg==="critico"?C.red:urg==="urgente"?C.yellow:C.sub2;
   return (
     <div style={{...S.card,borderLeft:`2px solid ${CLIENT_COLOR[f.cliente]||C.sub}`}} onClick={()=>onOpen(f)}>
@@ -586,8 +589,7 @@ function CardCompact({ f, onOpen, onTogglePago }) {
         <span style={{fontSize:12,color:urgColor,fontWeight:urg==="atrasado"?700:400}}>
           {urg==="suspenso"?"⏸ Prazo suspenso":urg==="atrasado"?`🚨 ${Math.abs(d)}d atraso`:urg==="critico"?`🔴 ${d}d restantes`:urg==="urgente"?`🟡 ${d}d restantes`:d!==null?`📅 ${fmtDate(prazoEfetivo(f))}`:"—"}
         </span>
-        <button style={{...S.pagoBtn,...(f.pago?S.pagoBtnSim:S.pagoBtnNao)}}
-          onClick={e=>{e.stopPropagation();onTogglePago(f.id);}}>
+        <button style={{...S.pagoBtn,...(f.pago?S.pagoBtnSim:S.pagoBtnNao)}} onClick={e=>{e.stopPropagation();onTogglePago(f.id);}}>
           {f.pago?"✓ Pago":"Pend."}
         </button>
       </div>
@@ -595,8 +597,8 @@ function CardCompact({ f, onOpen, onTogglePago }) {
   );
 }
 
-function CardPrazo({ f, onOpen }) {
-  const d=diasRestantes(f), urg=urgencia(f), sc=STATUS_CFG[f.status];
+function CardPrazo({f,onOpen}) {
+  const d=diasRestantes(f),urg=urgencia(f),sc=STATUS_CFG[f.status];
   return (
     <div style={{...S.card,opacity:urg==="suspenso"?0.7:1}} onClick={()=>onOpen(f)}>
       <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
@@ -606,8 +608,8 @@ function CardPrazo({ f, onOpen }) {
           <div style={{fontSize:12,color:C.sub,marginTop:4}}>{f.status==="Ajustes"?"Prazo ajuste: ":"Prazo: "}{fmtDate(prazoEfetivo(f))}</div>
         </div>
         <div style={{textAlign:"right"}}>
-          {d!==null && <div style={{fontSize:20,fontWeight:800,color:urg==="atrasado"||urg==="critico"?C.red:urg==="urgente"?C.yellow:C.teal}}>{d<0?`-${Math.abs(d)}`:d}d</div>}
-          {d===null && <div style={{fontSize:12,color:C.purple}}>⏸</div>}
+          {d!==null&&<div style={{fontSize:20,fontWeight:800,color:urg==="atrasado"||urg==="critico"?C.red:urg==="urgente"?C.yellow:C.teal}}>{d<0?`-${Math.abs(d)}`:d}d</div>}
+          {d===null&&<div style={{fontSize:12,color:C.purple}}>⏸</div>}
           <div style={{...S.statusPill,...sc,marginTop:4}}>{f.status}</div>
         </div>
       </div>
@@ -615,8 +617,8 @@ function CardPrazo({ f, onOpen }) {
   );
 }
 
-function CardLista({ f, onOpen, onTogglePago, dim }) {
-  const sc=STATUS_CFG[f.status]||STATUS_CFG["Em processo"], urg=urgencia(f), d=diasRestantes(f);
+function CardLista({f,onOpen,onTogglePago,dim}) {
+  const sc=STATUS_CFG[f.status]||STATUS_CFG["Em processo"],urg=urgencia(f),d=diasRestantes(f);
   return (
     <div style={{...S.card,opacity:dim?0.5:1}} onClick={()=>onOpen(f)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
@@ -632,8 +634,7 @@ function CardLista({ f, onOpen, onTogglePago, dim }) {
         <div style={{textAlign:"right",flexShrink:0}}>
           <div style={{fontSize:14,fontWeight:700,color:C.text}}>{brl(f.valor)}</div>
           <div style={{...S.statusPill,...sc,marginTop:4}}>{f.status}</div>
-          <button style={{...S.pagoBtn,...(f.pago?S.pagoBtnSim:S.pagoBtnNao),marginTop:6}}
-            onClick={e=>{e.stopPropagation();onTogglePago(f.id);}}>
+          <button style={{...S.pagoBtn,...(f.pago?S.pagoBtnSim:S.pagoBtnNao),marginTop:6}} onClick={e=>{e.stopPropagation();onTogglePago(f.id);}}>
             {f.pago?"✓ Pago":"Pend."}
           </button>
         </div>
@@ -643,42 +644,28 @@ function CardLista({ f, onOpen, onTogglePago, dim }) {
 }
 
 // ── FORM ──────────────────────────────────────────────────────────────────────
-function Form({ initial, onSave, onDelete }) {
-  const [f,setF]=useState({cliente:"",projeto:"",inicio:"",prazo:"",prazoAjuste:"",valor:"",status:"Em processo",pago:false,nf:"",obs:"",...initial});
+function Form({initial,onSave,onDelete}) {
+  const [f,setF]=useState({cliente:"",projeto:"",inicio:"",prazo:"",prazo_ajuste:"",valor:"",status:"Em processo",pago:false,nf:"",obs:"",...initial});
   const u=(k,v)=>setF(p=>({...p,[k]:v}));
   const valid=f.cliente&&f.projeto&&f.valor;
   return (
     <div style={S.formWrap}>
       <FRow label="Cliente">
-        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>
-          {CLIENTES.map(c=><Chip key={c} active={f.cliente===c} onClick={()=>u("cliente",c)} color={CLIENT_COLOR[c]}>{c}</Chip>)}
-        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>{CLIENTES.map(c=><Chip key={c} active={f.cliente===c} onClick={()=>u("cliente",c)} color={CLIENT_COLOR[c]}>{c}</Chip>)}</div>
         <input style={{...S.inp,marginTop:8}} placeholder="Ou digite…" value={f.cliente} onChange={e=>u("cliente",e.target.value)}/>
       </FRow>
-      <FRow label="Projeto / Serviço *">
-        <input style={S.inp} placeholder="Ex: Revisão EF6-HIS-U1-C1" value={f.projeto} onChange={e=>u("projeto",e.target.value)}/>
-      </FRow>
-      <FRow label="Valor (R$) *">
-        <input style={S.inp} type="number" placeholder="0" value={f.valor} onChange={e=>u("valor",parseFloat(e.target.value)||"")}/>
-      </FRow>
+      <FRow label="Projeto / Serviço *"><input style={S.inp} placeholder="Ex: Revisão EF6-HIS-U1-C1" value={f.projeto} onChange={e=>u("projeto",e.target.value)}/></FRow>
+      <FRow label="Valor (R$) *"><input style={S.inp} type="number" placeholder="0" value={f.valor} onChange={e=>u("valor",parseFloat(e.target.value)||"")}/></FRow>
       <div style={{display:"flex",gap:10,marginBottom:16}}>
         <div style={{flex:1}}><div style={S.fLabel}>Início</div><input style={S.inp} type="date" value={f.inicio} onChange={e=>u("inicio",e.target.value)}/></div>
         <div style={{flex:1}}><div style={S.fLabel}>Prazo</div><input style={S.inp} type="date" value={f.prazo} onChange={e=>u("prazo",e.target.value)}/></div>
       </div>
-      {f.status==="Ajustes"&&(
-        <FRow label="Prazo do ajuste">
-          <input style={S.inp} type="date" value={f.prazoAjuste} onChange={e=>u("prazoAjuste",e.target.value)}/>
-        </FRow>
-      )}
+      {f.status==="Ajustes"&&<FRow label="Prazo do ajuste"><input style={S.inp} type="date" value={f.prazo_ajuste} onChange={e=>u("prazo_ajuste",e.target.value)}/></FRow>}
       <FRow label="Status">
-        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>
-          {STATUSES.map(s=><Chip key={s} active={f.status===s} onClick={()=>u("status",s)} color={STATUS_CFG[s]?.color}>{s}</Chip>)}
-        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>{STATUSES.map(s=><Chip key={s} active={f.status===s} onClick={()=>u("status",s)} color={STATUS_CFG[s]?.color}>{s}</Chip>)}</div>
       </FRow>
       <FRow label="Nota Fiscal">
-        <div style={{display:"flex",gap:8,marginTop:6}}>
-          {NF_OPTS.map(n=><Chip key={n} active={f.nf===n} onClick={()=>u("nf",n)} small>{n}</Chip>)}
-        </div>
+        <div style={{display:"flex",gap:8,marginTop:6}}>{NF_OPTS.map(n=><Chip key={n} active={f.nf===n} onClick={()=>u("nf",n)} small>{n}</Chip>)}</div>
       </FRow>
       <FRow label="Pago?">
         <div style={{display:"flex",gap:8,marginTop:6}}>
@@ -686,25 +673,20 @@ function Form({ initial, onSave, onDelete }) {
           <button style={{...S.toggleBtn,...(!f.pago?S.toggleOn:S.toggleOff)}} onClick={()=>u("pago",false)}>✗ Não</button>
         </div>
       </FRow>
-      <FRow label="Observações">
-        <textarea style={{...S.inp,height:72,resize:"none"}} value={f.obs} onChange={e=>u("obs",e.target.value)} placeholder="Anotações opcionais"/>
-      </FRow>
-      <button style={{...S.saveBtn,opacity:valid?1:0.4}} disabled={!valid} onClick={()=>onSave(f)}>
-        {f.id?"Salvar alterações":"Adicionar freelance"}
-      </button>
+      <FRow label="Observações"><textarea style={{...S.inp,height:72,resize:"none"}} value={f.obs} onChange={e=>u("obs",e.target.value)} placeholder="Anotações opcionais"/></FRow>
+      <button style={{...S.saveBtn,opacity:valid?1:0.4}} disabled={!valid} onClick={()=>onSave(f)}>{f.id?"Salvar alterações":"Adicionar freelance"}</button>
       {f.id&&<button style={S.delBtn} onClick={()=>{if(window.confirm("Excluir?"))onDelete(f.id);}}>Excluir</button>}
     </div>
   );
 }
 
-// ── MODAL AJUSTE ──────────────────────────────────────────────────────────────
-function AjusteModal({ freelance:f, onConfirm, onCancel }) {
+function AjusteModal({freelance:f,onConfirm,onCancel}) {
   const [prazo,setPrazo]=useState("");
   return (
     <div style={S.modalOverlay}>
       <div style={S.modalBox}>
         <div style={S.modalTitle}>Prazo do ajuste</div>
-        <div style={S.modalSub}>"{f.projeto}" foi movido para Ajustes. Qual é o novo prazo?</div>
+        <div style={S.modalSub}>"{f.projeto}" foi para Ajustes. Qual é o novo prazo?</div>
         <input style={{...S.inp,marginTop:12}} type="date" value={prazo} onChange={e=>setPrazo(e.target.value)}/>
         <button style={{...S.saveBtn,opacity:prazo?1:0.4,marginTop:12}} disabled={!prazo} onClick={()=>onConfirm(f,prazo)}>Confirmar</button>
         <button style={{...S.delBtn,marginTop:8}} onClick={onCancel}>Cancelar</button>
@@ -713,7 +695,6 @@ function AjusteModal({ freelance:f, onConfirm, onCancel }) {
   );
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
 function KPI({label,value,accent,small}) {
   return (
     <div style={{...S.kpi,borderTop:`2px solid ${accent}`}}>
@@ -724,12 +705,9 @@ function KPI({label,value,accent,small}) {
 }
 function FRow({label,children}) { return <div style={{marginBottom:16}}><div style={S.fLabel}>{label}</div>{children}</div>; }
 function Chip({children,active,onClick,color,small}) {
-  return (
-    <button style={{...S.chip,...(small?{padding:"4px 10px",fontSize:11}:{}),...(active&&color?{background:color+"22",color,borderColor:color}:{}),...(active&&!color?S.chipActive:{})}} onClick={onClick}>{children}</button>
-  );
+  return <button style={{...S.chip,...(small?{padding:"4px 10px",fontSize:11}:{}),...(active&&color?{background:color+"22",color,borderColor:color}:{}),...(active&&!color?S.chipActive:{})}} onClick={onClick}>{children}</button>;
 }
 
-// ── STYLES ────────────────────────────────────────────────────────────────────
 const CSS=`
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Archivo:wght@300;400;500;600;700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -802,10 +780,9 @@ const S={
   modalBox:{background:C.card,borderRadius:16,padding:24,width:"100%",maxWidth:400,border:`1px solid ${C.border}`},
   modalTitle:{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.text,marginBottom:6},
   modalSub:{fontSize:13,color:C.sub,lineHeight:1.5},
-  // Login
   googleBtn:{width:"100%",background:C.card2,color:C.text,border:`1px solid ${C.border}`,borderRadius:12,padding:"13px",fontSize:15,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,fontFamily:"inherit",marginBottom:8},
-  divider:{position:"relative",textAlign:"center",margin:"16px 0"},
-  dividerText:{background:C.bg,padding:"0 12px",fontSize:12,color:C.sub,position:"relative",zIndex:1},
+  divider:{position:"relative",textAlign:"center",margin:"16px 0",borderTop:`1px solid ${C.border}`},
+  dividerText:{background:C.bg,padding:"0 12px",fontSize:12,color:C.sub,position:"relative",top:-10},
   errorBox:{background:"#D95F5F18",border:`1px solid ${C.red}40`,borderRadius:10,padding:"10px 14px",fontSize:13,color:C.red,marginBottom:12},
   msgBox:{background:"#5FA86D18",border:`1px solid ${C.green}40`,borderRadius:10,padding:"10px 14px",fontSize:13,color:C.green,marginBottom:12},
   linkBtn:{width:"100%",background:"none",border:"none",color:C.sub,fontSize:13,cursor:"pointer",marginTop:12,fontFamily:"inherit"},
